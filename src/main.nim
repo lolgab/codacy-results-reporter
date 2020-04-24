@@ -33,13 +33,17 @@ let results = readAllResults()
 let response: ResponseBody = createResponse(toolShortName = "clang-tidy", toolLongName = "ClangTidy", results = results)
 
 let jsonResponse = `%`(response)
-let stringResponse = jsonResponse.to(string)
-echo(jsonResponse)
+
+let stringResponse = `$`(jsonResponse)
 
 let client = newHttpClient()
 client.headers = newHttpHeaders(
-  { "Content-Type": "application/json", "project-token": projectToken}
+  { "Content-Type": "application/json", "project-token": projectToken }
 )
 
-discard client.request(fmt"https://api.codacy.com/2.0/commit/{commit}/issuesRemoteResults", httpMethod = HttpPost, body = stringResponse)
-discard client.request(fmt"https://api.codacy.com/2.0/commit/{commit}/resultsFinal", httpMethod = HttpPost)
+let issuesResponse = client.request(fmt"https://api.codacy.com/2.0/commit/{commit}/issuesRemoteResults", httpMethod = HttpPost, body = stringResponse)
+echo(issuesResponse.body)
+
+let finalResponse = client.request(fmt"https://api.codacy.com/2.0/commit/{commit}/resultsFinal", httpMethod = HttpPost)
+echo(finalResponse.body)
+
