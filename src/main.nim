@@ -1,11 +1,9 @@
-import sequtils
-import json
-import model/result
-import model/api
-import createResponse
 import httpClient
+import json
+import model
+import sequtils
 import strformat
-import os
+import cligen
 
 proc readAllResults(): seq[ToolOutput] =
   iterator readInput(): ToolOutput =
@@ -19,31 +17,24 @@ proc readAllResults(): seq[ToolOutput] =
         over = true
   readInput.toSeq()
 
+proc main(shortName: string, longName: string, commit: string, projectToken: string): int=
+  let results = readAllResults()
 
-let projectTokenEnvName = "PROJECT_TOKEN"
-let projectToken: string = getEnv(projectTokenEnvName)
-assert(projectToken != "", fmt"{projectTokenEnvName} is not defined!")
+  let response: ResponseBody = createResponse(toolShortName = shortName, toolLongName = longName, results = results)
 
-let commitEnvName = "COMMIT"
-let commit: string = getEnv(commitEnvName)
-assert(commit != "", fmt"{commitEnvName} is not defined!")
+  let jsonResponse = `%`(response)
+  echo(jsonResponse.pretty())
+  let stringResponse = `$`(jsonResponse)
 
-let results = readAllResults()
+  let client = newHttpClient()
+  client.headers = newHttpHeaders(
+    { "Content-Type": "application/json", "project-token": projectToken }
+  )
 
-let response: ResponseBody = createResponse(toolShortName = "clang-tidy", toolLongName = "ClangTidy", results = results)
+  discard client.request(fmt"https://api.codacy.com/2.0/commit/{commit}/issuesRemoteResults", httpMethod = HttpPost, body = stringResponse)
+  
+  discard client.request(fmt"https://api.codacy.com/2.0/commit/{commit}/resultsFinal", httpMethod = HttpPost)
 
-let jsonResponse = `%`(response)
+  result = 1
 
-let stringResponse = `$`(jsonResponse)
-
-let client = newHttpClient()
-client.headers = newHttpHeaders(
-  { "Content-Type": "application/json", "project-token": projectToken }
-)
-
-let issuesResponse = client.request(fmt"https://api.codacy.com/2.0/commit/{commit}/issuesRemoteResults", httpMethod = HttpPost, body = stringResponse)
-echo(issuesResponse.body)
-
-let finalResponse = client.request(fmt"https://api.codacy.com/2.0/commit/{commit}/resultsFinal", httpMethod = HttpPost)
-echo(finalResponse.body)
-
+dispatch(main, cmdName = "codacy-results-reporter")
