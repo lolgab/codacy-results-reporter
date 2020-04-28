@@ -4,6 +4,7 @@ import model
 import sequtils
 import strformat
 import cligen
+import commit
 
 proc readAllResults(): seq[ToolOutput] =
   iterator readInput(): ToolOutput =
@@ -17,7 +18,9 @@ proc readAllResults(): seq[ToolOutput] =
         over = true
   readInput.toSeq()
 
-proc main(shortName: string, longName: string, commit: string, projectToken: string): int=
+proc main(shortName: string, longName: string, commit: string = "", projectToken: string): int =
+  let commitOrCurrent = if commit == "": currentCommit() else: commit
+
   let results = readAllResults()
 
   let response: ResponseBody = createResponse(toolShortName = shortName, toolLongName = longName, results = results)
@@ -31,9 +34,9 @@ proc main(shortName: string, longName: string, commit: string, projectToken: str
     { "Content-Type": "application/json", "project-token": projectToken }
   )
 
-  discard client.request(fmt"https://api.codacy.com/2.0/commit/{commit}/issuesRemoteResults", httpMethod = HttpPost, body = stringResponse)
+  discard client.request(fmt"https://api.codacy.com/2.0/commit/{commitOrCurrent}/issuesRemoteResults", httpMethod = HttpPost, body = stringResponse)
   
-  discard client.request(fmt"https://api.codacy.com/2.0/commit/{commit}/resultsFinal", httpMethod = HttpPost)
+  discard client.request(fmt"https://api.codacy.com/2.0/commit/{commitOrCurrent}/resultsFinal", httpMethod = HttpPost)
 
   result = 1
 
